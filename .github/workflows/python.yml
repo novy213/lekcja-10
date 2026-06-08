@@ -51,7 +51,7 @@ jobs:
       run: uv sync
 
     - name: Generate Docs
-      run: uv run --with pdoc pdoc src/ -o ./docs-output 
+      run: uv run --with pdoc pdoc src/ -o ./docs-output     
 
     - name: Upload Artifact
       uses: actions/upload-pages-artifact@v3
