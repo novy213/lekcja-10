@@ -17,3 +17,9 @@ pip install -r requirements.txt
 ```cmd
 uv sync
 ```
+
+## Dokumentacja
+
+Po wdrożeniu GitHub Pages dokumentacja będzie dostępna pod adresem:
+
+https://twoj-login.github.io/nazwa-twojego-projektu/

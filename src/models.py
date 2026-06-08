@@ -1,191 +1,328 @@
-"""
-Data models for the apartment management system.
+"""Data models for the apartment management system.
+
+The module contains Pydantic models used to deserialize JSON input files and to
+represent the typed entities consumed by :class:`src.manager.Manager`.
 """
 
 import json
-from typing import Dict, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Parameters(BaseModel):
-    """
-    Configuration parameters for the apartment management system.
-    """
+    """Configuration parameters for data loading and validation rules."""
 
-    apartments_json_path: str = "data/apartments.json"
-    tenants_json_path: str = "data/tenants.json"
-    transfers_json_path: str = "data/transfers.json"
-    bills_json_path: str = "data/bills.json"
-    tenants_blacklist_json_path: str = "data/tenants_blacklist.json"
-    apartment_events_json_path: str = "data/apartment_events.json"
+    apartments_json_path: str = Field(
+        default="data/apartments.json",
+        description="Path to the apartment definitions JSON file.",
+    )
+    tenants_json_path: str = Field(
+        default="data/tenants.json",
+        description="Path to the tenant definitions JSON file.",
+    )
+    transfers_json_path: str = Field(
+        default="data/transfers.json",
+        description="Path to the transfer records JSON file.",
+    )
+    bills_json_path: str = Field(
+        default="data/bills.json",
+        description="Path to the apartment bills JSON file.",
+    )
+    tenants_blacklist_json_path: str = Field(
+        default="data/tenants_blacklist.json",
+        description="Path to the blacklist entries JSON file.",
+    )
+    apartment_events_json_path: str = Field(
+        default="data/apartment_events.json",
+        description="Path to the apartment events JSON file.",
+    )
 
-    max_transfer_pln: float = 4500.0
-    max_refund_pln: float = 2500.0
+    max_transfer_pln: float = Field(
+        default=4500.0,
+        description="Maximum accepted incoming transfer amount in PLN.",
+    )
+    max_refund_pln: float = Field(
+        default=2500.0,
+        description="Maximum accepted refund amount in PLN.",
+    )
 
 
 class Room(BaseModel):
-    """
-    A room model in the apartment.
-    """
+    """Single room definition belonging to an apartment."""
 
-    name: str
-    area_m2: float
+    name: str = Field(description="Human-readable room name.")
+    area_m2: float = Field(description="Room area measured in square meters.")
 
 
 class Apartment(BaseModel):
-    """
-    An apartment model containing details about the apartment and its rooms.
-    """
+    """Apartment definition with identity, location, and room structure."""
 
-    key: str
-    name: str
-    location: str
-    area_m2: float
-    rooms: Dict[str, Room]
+    key: str = Field(description="Unique apartment key used across datasets.")
+    name: str = Field(description="Display name of the apartment.")
+    location: str = Field(description="Address or location description.")
+    area_m2: float = Field(description="Total apartment area in square meters.")
+    rooms: dict[str, Room] = Field(
+        description="Dictionary of rooms keyed by room identifier.",
+    )
 
     @staticmethod
-    def from_json_file(file_path: str) -> Dict[str, "Apartment"]:
-        """Load apartments from a JSON file and return a dictionary of Apartment instances."""
+    def from_json_file(file_path: str) -> dict[str, "Apartment"]:
+        """Load apartments from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing apartment data.
+
+        Returns:
+        -------
+            dict[str, Apartment]: Apartments indexed by apartment key.
+
+        Example:
+        -------
+            >>> apartments = Apartment.from_json_file("data/apartments.json")
+            >>> "A1" in apartments
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, dict), "Expected a dictionary of apartments"
         return {key: Apartment(**apartment) for key, apartment in data.items()}
 
 
 class Tenant(BaseModel):
-    """
-    A tenant model in the apartment management system.
-    """
+    """Tenant definition used for settlements and agreement validation."""
 
-    name: str
-    apartment: str
-    room: str
-    rent_pln: float
-    deposit_pln: float
-    date_agreement_from: str
-    date_agreement_to: str
+    name: str = Field(description="Full tenant name.")
+    apartment: str = Field(description="Apartment key assigned to the tenant.")
+    room: str = Field(description="Room identifier occupied by the tenant.")
+    rent_pln: float = Field(description="Monthly rent amount in PLN.")
+    deposit_pln: float = Field(description="Required deposit amount in PLN.")
+    date_agreement_from: str = Field(
+        description="Agreement start date in ISO format YYYY-MM-DD.",
+    )
+    date_agreement_to: str = Field(
+        description="Agreement end date in ISO format YYYY-MM-DD.",
+    )
 
     @staticmethod
-    def from_json_file(file_path: str) -> Dict[str, "Tenant"]:
-        """Load tenants from a JSON file and return a dictionary of Tenant instances."""
+    def from_json_file(file_path: str) -> dict[str, "Tenant"]:
+        """Load tenants from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing tenant data.
+
+        Returns:
+        -------
+            dict[str, Tenant]: Tenants indexed by tenant identifier.
+
+        Example:
+        -------
+            >>> tenants = Tenant.from_json_file("data/tenants.json")
+            >>> isinstance(tenants, dict)
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, dict), "Expected a dictionary of tenants"
         return {key: Tenant(**tenant) for key, tenant in data.items()}
 
 
 class TenantBlacklistEntry(BaseModel):
-    """
-    A blacklist entry for a tenant in the apartment management system.
-    """
+    """Blacklist record describing why a tenant is flagged."""
 
-    tenant: str
-    reason: str
+    tenant: str = Field(description="Tenant name present on the blacklist.")
+    reason: str = Field(description="Reason for the blacklist entry.")
 
     @staticmethod
-    def from_json_file(file_path: str) -> List["TenantBlacklistEntry"]:
-        """Load tenant blacklist entries from a JSON file."""
+    def from_json_file(file_path: str) -> list["TenantBlacklistEntry"]:
+        """Load tenant blacklist entries from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing blacklist data.
+
+        Returns:
+        -------
+            list[TenantBlacklistEntry]: Parsed blacklist entries.
+
+        Example:
+        -------
+            >>> entries = TenantBlacklistEntry.from_json_file(
+            ...     "data/tenants_blacklist.json"
+            ... )
+            >>> isinstance(entries, list)
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, list), "Expected a list of blacklist entries"
         return [TenantBlacklistEntry(**entry) for entry in data]
 
 
 class Transfer(BaseModel):
-    """
-    A transfer model representing a financial transaction in the apartment management system.
-    """
+    """Financial transaction assigned to a tenant and optional settlement period."""
 
-    amount_pln: float
-    date: str
-    settlement_year: int | None
-    settlement_month: int | None
-    tenant: str
-    type: str | None = None
+    amount_pln: float = Field(description="Transfer amount in PLN.")
+    date: str = Field(description="Transaction date in ISO format YYYY-MM-DD.")
+    settlement_year: int | None = Field(
+        description="Year linked to the settlement, or None for unassigned transfers.",
+    )
+    settlement_month: int | None = Field(
+        description="Month linked to the settlement, or None for unassigned transfers.",
+    )
+    tenant: str = Field(description="Tenant identifier referenced by the transfer.")
+    type: str | None = Field(
+        default=None,
+        description="Optional transfer type, for example deposit.",
+    )
 
     @staticmethod
-    def from_json_file(file_path: str) -> List["Transfer"]:
-        """Load transfers from a JSON file and return a list of Transfer instances."""
+    def from_json_file(file_path: str) -> list["Transfer"]:
+        """Load transfers from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing transfer data.
+
+        Returns:
+        -------
+            list[Transfer]: Parsed transfer records.
+
+        Example:
+        -------
+            >>> transfers = Transfer.from_json_file("data/transfers.json")
+            >>> isinstance(transfers, list)
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, list), "Expected a list of transfers"
         return [Transfer(**transfer) for transfer in data]
 
 
 class Bill(BaseModel):
-    """
-    A bill model representing a financial obligation in the apartment management system.
-    """
+    """Financial obligation assigned to an apartment and settlement period."""
 
-    amount_pln: float
-    date_due: str
-    apartment: str
-    settlement_year: int
-    settlement_month: int
-    type: str
+    amount_pln: float = Field(description="Bill amount in PLN.")
+    date_due: str = Field(description="Bill due date in ISO format YYYY-MM-DD.")
+    apartment: str = Field(description="Apartment key charged by the bill.")
+    settlement_year: int = Field(description="Settlement year covered by the bill.")
+    settlement_month: int = Field(description="Settlement month covered by the bill.")
+    type: str = Field(description="Bill category, for example utilities or rent.")
 
     @staticmethod
-    def from_json_file(file_path: str) -> List["Bill"]:
-        """Load bills from a JSON file and return a list of Bill instances."""
+    def from_json_file(file_path: str) -> list["Bill"]:
+        """Load bills from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing bill data.
+
+        Returns:
+        -------
+            list[Bill]: Parsed bill records.
+
+        Example:
+        -------
+            >>> bills = Bill.from_json_file("data/bills.json")
+            >>> isinstance(bills, list)
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, list), "Expected a list of bills"
         return [Bill(**bill) for bill in data]
 
 
 class ApartmentSettlement(BaseModel):
-    """
-    An apartment settlement model representing the financial summary for an apartment
-    in a given month and year.
-    """
+    """Financial summary for an apartment in a selected month and year."""
 
-    key: str
-    apartment: str
-    month: int
-    year: int
-    total_due_pln: float
-    total_transfers_pln: float = 0.0
-    balance_pln: float = 0.0
+    key: str = Field(description="Unique identifier of the settlement.")
+    apartment: str = Field(description="Apartment key covered by the settlement.")
+    month: int = Field(description="Settlement month.")
+    year: int = Field(description="Settlement year.")
+    total_due_pln: float = Field(description="Total amount due in PLN.")
+    total_transfers_pln: float = Field(
+        default=0.0,
+        description="Total paid transfers assigned to the settlement in PLN.",
+    )
+    balance_pln: float = Field(
+        default=0.0,
+        description="Difference between transfers and dues in PLN.",
+    )
 
 
 class TenantSettlement(BaseModel):
-    """
-    A tenant settlement model representing the financial summary for a tenant
-    in a given month and year.
-    """
+    """Financial summary for a tenant in a selected month and year."""
 
-    tenant: str
-    apartment_settlement: str
-    month: int
-    year: int
-    total_due_pln: float
-    total_transfers_pln: float = 0.0
-    balance_pln: float = 0.0
+    tenant: str = Field(description="Tenant name attached to the settlement.")
+    apartment_settlement: str = Field(
+        description="Identifier of the related apartment settlement.",
+    )
+    month: int = Field(description="Settlement month.")
+    year: int = Field(description="Settlement year.")
+    total_due_pln: float = Field(description="Tenant amount due in PLN.")
+    total_transfers_pln: float = Field(
+        default=0.0,
+        description="Total paid transfers assigned to the tenant in PLN.",
+    )
+    balance_pln: float = Field(
+        default=0.0,
+        description="Difference between paid transfers and due amount in PLN.",
+    )
 
 
 class ApartmentEvent(BaseModel):
-    """
-    An apartment event model representing an event or issue related to an apartment.
-    """
+    """Event or issue related to an apartment, optionally linked to a cost."""
 
-    date: str
-    apartment: str
-    amount_pln: float | None = None
-    tenant: str | None = None
-    description: str
-    solved: bool = False
+    date: str = Field(description="Event date in ISO format YYYY-MM-DD.")
+    apartment: str = Field(description="Apartment key related to the event.")
+    amount_pln: float | None = Field(
+        default=None,
+        description="Optional cost associated with the event in PLN.",
+    )
+    tenant: str | None = Field(
+        default=None,
+        description="Optional tenant name related to the event.",
+    )
+    description: str = Field(description="Human-readable event description.")
+    solved: bool = Field(
+        default=False,
+        description="Whether the event has already been resolved.",
+    )
 
     @staticmethod
-    def from_json_file(file_path: str) -> List["ApartmentEvent"]:
-        """Load apartment events from a JSON file."""
+    def from_json_file(file_path: str) -> list["ApartmentEvent"]:
+        """Load apartment events from a JSON file.
+
+        Args:
+        ----
+            file_path (str): Path to the JSON file containing apartment events.
+
+        Returns:
+        -------
+            list[ApartmentEvent]: Parsed apartment events.
+
+        Example:
+        -------
+            >>> events = ApartmentEvent.from_json_file("data/apartment_events.json")
+            >>> isinstance(events, list)
+            True
+
+        """
         data = None
-        with open(file_path, "r", encoding="utf-8") as file:
+        with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
         assert isinstance(data, list), "Expected a list of apartment events"
         return [ApartmentEvent(**event) for event in data]
